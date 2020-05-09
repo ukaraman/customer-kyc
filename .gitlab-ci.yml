@@ -1,0 +1,57 @@
+stages:
+  - test
+  - build
+
+test:
+  stage: test
+  image: golang:stretch
+  script:
+  - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf "https://gitlab.com/"
+  - git clone -b $CI_COMMIT_REF_NAME $CI_REPOSITORY_URL $GOPATH/src/modulus/$CI_PROJECT_NAME
+  - git clone https://gitlab.com/lambospeed/licensing-client.git $GOPATH/src/modulus/common/licensing-client
+  - go get -d -v ./...
+  - go get gopkg.in/jarcoal/httpmock.v1 github.com/onsi/ginkgo/ginkgo github.com/onsi/gomega/... github.com/stretchr/testify
+  - cd $GOPATH/src/modulus/$CI_PROJECT_NAME
+  - go test -cover ./...
+
+build:
+  stage: build
+  image: golang:alpine
+  before_script:
+  - apk add --no-cache git
+  script:
+  - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf "https://gitlab.com/"
+  - git clone -b $CI_COMMIT_REF_NAME $CI_REPOSITORY_URL $GOPATH/src/modulus/$CI_PROJECT_NAME
+  - git clone https://gitlab.com/lambospeed/licensing-client.git $GOPATH/src/modulus/common/licensing-client
+  - go get -d -v ./...
+  - cd main
+  - go build -o kyc
+  - mv kyc kyc.cfg ../
+  artifacts:
+    paths:
+    - kyc
+    - kyc.cfg
+  only:
+  - master
+
+build:prod:windows:
+  stage: build
+  image: golang:alpine
+  before_script:
+    - apk add --no-cache git
+  script:
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf "https://gitlab.com/"
+    - git clone -b $CI_COMMIT_REF_NAME $CI_REPOSITORY_URL $GOPATH/src/modulus/$CI_PROJECT_NAME
+    - git clone https://gitlab.com/lambospeed/licensing-client.git $GOPATH/src/modulus/common/licensing-client
+    - go get -d -v ./...
+    - cd main
+    - env GOOS=windows GOARCH=amd64 go build -ldflags "-X main.DevEnv=false" -o kyc.exe -v
+    - cp kyc.exe ../
+    - cp kyc.cfg ../
+  artifacts:
+    name: "kyc-prod-win"
+    paths:
+      - kyc.exe
+      - kyc.cfg
+  only:
+  - master
